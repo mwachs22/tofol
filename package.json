@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:hocuspocus": "npx ts-node --esm hocuspocus-server.ts",
+    "dev:hocuspocus": "node --env-file=.env.local --import tsx/esm hocuspocus-server.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -53,6 +53,7 @@
     "eslint-config-next": "16.2.6",
     "supabase": "^2.98.2",
     "tailwindcss": "^4",
+    "tsx": "^4.22.0",
     "typescript": "^5"
   }
 }
