@@ -4,6 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+interface GBrainConfig {
+  repoPath: string;
+  remoteUrl: string;
+  authorName: string;
+  authorEmail: string;
+}
+
 type Step = 1 | 2 | 3;
 
 export default function OnboardingPage() {
@@ -14,6 +21,12 @@ export default function OnboardingPage() {
   const [handleError, setHandleError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gbrain, setGbrain] = useState<GBrainConfig>({
+    repoPath: "",
+    remoteUrl: "",
+    authorName: "",
+    authorEmail: "",
+  });
 
   function deriveHandle(name: string) {
     return name
@@ -48,7 +61,6 @@ export default function OnboardingPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    // Create workspace via server action route
     const res = await fetch("/api/workspaces", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -60,6 +72,17 @@ export default function OnboardingPage() {
       setError(body.detail ?? "Something went wrong. Try a different handle.");
       setLoading(false);
       return;
+    }
+
+    const { id: workspaceId } = await res.json();
+
+    // Configure GBrain adapter if credentials were provided
+    if (gbrain.repoPath && gbrain.remoteUrl) {
+      await fetch(`/api/workspaces/${workspaceId}/adapter`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adapterType: "gbrain", config: gbrain }),
+      });
     }
 
     router.push(`/${handle}`);
@@ -157,19 +180,36 @@ export default function OnboardingPage() {
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-                Connect a backend
+                Connect a GBrain repo
               </h1>
               <p className="mt-1 text-sm text-zinc-500">
-                Link a GBrain repo so your agent can read and write docs. You can
-                do this later in workspace settings.
+                Point Tofol at a local GBrain git repo so your agent can read and
+                write documents. You can skip this and configure it later in
+                workspace settings.
               </p>
             </div>
 
-            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 bg-white dark:bg-zinc-900">
-              <p className="text-sm text-zinc-500 italic">
-                GBrain adapter configuration will appear here. Skip for now to
-                configure it in Settings later.
-              </p>
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 space-y-4">
+              {[
+                { key: "repoPath" as const, label: "Repo path", placeholder: "/Users/you/brain", description: "Absolute path to your local GBrain git clone" },
+                { key: "remoteUrl" as const, label: "Remote URL", placeholder: "git@github.com:you/brain.git", description: "Git remote for push/pull" },
+                { key: "authorName" as const, label: "Git author name", placeholder: "Alice", description: "Used in commit metadata" },
+                { key: "authorEmail" as const, label: "Git author email", placeholder: "alice@example.com", description: "Used in commit metadata" },
+              ].map(({ key, label, placeholder, description }) => (
+                <div key={key}>
+                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-0.5">
+                    {label}
+                  </label>
+                  <p className="text-xs text-zinc-400 mb-1">{description}</p>
+                  <input
+                    type="text"
+                    value={gbrain[key]}
+                    onChange={(e) => setGbrain((g) => ({ ...g, [key]: e.target.value }))}
+                    placeholder={placeholder}
+                    className="w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-sm font-mono outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-50"
+                  />
+                </div>
+              ))}
             </div>
 
             <div className="flex justify-between">

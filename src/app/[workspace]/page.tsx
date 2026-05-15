@@ -36,11 +36,19 @@ export default async function WorkspacePage({ params }: Props) {
     .order("updated_at", { ascending: false })
     .limit(100);
 
+  const { data: stars } = await supabase
+    .from("starred_docs")
+    .select("document_id")
+    .eq("user_id", user.id);
+
+  const starredIds = new Set((stars ?? []).map((s) => s.document_id));
+
   return (
     <WorkspaceHome
       workspace={{ id: ws.id, name: ws.name, handle: ws.handle }}
       memberRole={member.role}
       initialDocs={docs ?? []}
+      initialStarredIds={[...starredIds]}
     />
   );
 }
