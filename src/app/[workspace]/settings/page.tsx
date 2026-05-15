@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { WorkspaceDetailsForm } from "./WorkspaceDetailsForm";
 
 interface Props {
   params: Promise<{ workspace: string }>;
@@ -110,51 +111,3 @@ export default async function SettingsPage({ params }: Props) {
   );
 }
 
-function WorkspaceDetailsForm({
-  workspaceId,
-  name,
-  handle,
-}: {
-  workspaceId: string;
-  name: string;
-  handle: string;
-}) {
-  // Rendered as server component — form submits to API
-  return (
-    <form
-      action={`/api/workspaces/${workspaceId}`}
-      method="POST"
-      className="space-y-4"
-    >
-      <div>
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          Workspace name
-        </label>
-        <input
-          name="name"
-          defaultValue={name}
-          className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-400"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-          Handle
-        </label>
-        <div className="flex items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 focus-within:ring-2 focus-within:ring-zinc-400">
-          <span className="pl-3 pr-1 text-sm text-zinc-400">tofol.io/</span>
-          <input
-            name="handle"
-            defaultValue={handle}
-            className="flex-1 bg-transparent px-1 py-2 text-sm outline-none"
-          />
-        </div>
-      </div>
-      <button
-        type="submit"
-        className="rounded-md bg-zinc-900 dark:bg-zinc-50 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors"
-      >
-        Save changes
-      </button>
-    </form>
-  );
-}
