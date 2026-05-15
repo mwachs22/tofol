@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/types";
 
 const HANDLE_RE = /^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$/;
 const RESERVED = new Set([
@@ -11,17 +12,12 @@ function problem(status: number, detail: string) {
   return NextResponse.json({ detail }, { status });
 }
 
-interface RouteParams {
-  params: Promise<{ id: string }>;
-}
-
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const { id: workspaceId } = await params;
+async function getAdminMember(workspaceId: string) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return problem(401, "Unauthorized");
+  if (!user) return { user: null, member: null, supabase };
 
   const { data: member } = await supabase
     .from("members")
@@ -29,12 +25,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .single();
+
+  return { user, member, supabase };
+}
+
+interface RouteParams {
+  params: Promise<{ id: string }>;
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
+  const { id: workspaceId } = await params;
+  const { user, member } = await getAdminMember(workspaceId);
+  if (!user) return problem(401, "Unauthorized");
   if (!member || member.role !== "admin") return problem(403, "Admins only.");
 
   const body = await request.json().catch(() => null);
   if (!body) return problem(400, "Request body required.");
 
-  const updates: { name?: string; handle?: string } = {};
+  const updates: { name?: string; handle?: string; theme_config?: Json } = {};
 
   if (typeof body.name === "string") {
     const name = body.name.trim();
@@ -49,6 +57,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     updates.handle = h;
   }
 
+  if (body.themeConfig !== undefined) {
+    updates.theme_config = body.themeConfig as Json;
+  }
+
   if (Object.keys(updates).length === 0) return problem(400, "No updatable fields.");
 
   const service = await createServiceClient();
@@ -56,7 +68,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     .from("workspaces")
     .update(updates)
     .eq("id", workspaceId)
-    .select("id, name, handle")
+    .select("id, name, handle, theme_config")
     .single();
 
   if (error) {
@@ -65,4 +77,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   return NextResponse.json(ws);
+}
+
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  const { id: workspaceId } = await params;
+  const { user, member } = await getAdminMember(workspaceId);
+  if (!user) return problem(401, "Unauthorized");
+  if (!member || member.role !== "admin") return problem(403, "Admins only.");
+
+  const service = await createServiceClient();
+  // Cascade deletes handle documents, members, folders, etc. via FK constraints
+  const { error } = await service.from("workspaces").delete().eq("id", workspaceId);
+  if (error) return problem(500, error.message);
+
+  return new NextResponse(null, { status: 204 });
 }

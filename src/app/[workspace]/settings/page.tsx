@@ -3,6 +3,8 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { WorkspaceDetailsForm } from "./WorkspaceDetailsForm";
+import { ThemeForm } from "./ThemeForm";
+import { DangerZone } from "./DangerZone";
 
 interface Props {
   params: Promise<{ workspace: string }>;
@@ -37,6 +39,11 @@ export default async function SettingsPage({ params }: Props) {
     { href: `/${handle}/settings/members`, label: "Members" },
     { href: `/${handle}/settings/migrate`, label: "Migration" },
   ];
+
+  const themeConfig =
+    typeof ws.theme_config === "object" && ws.theme_config !== null
+      ? (ws.theme_config as { accentColor?: string })
+      : null;
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950">
@@ -88,21 +95,21 @@ export default async function SettingsPage({ params }: Props) {
               />
             </section>
 
+            <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+              <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-50 mb-4">
+                Theme
+              </h2>
+              <ThemeForm workspaceId={ws.id} initialThemeConfig={themeConfig} />
+            </section>
+
             <section className="rounded-lg border border-red-100 dark:border-red-900 p-5">
               <h2 className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
                 Danger zone
               </h2>
               <p className="text-xs text-zinc-500 mb-4">
-                Export all documents before deleting. This action is irreversible.
+                Export all documents before deleting. Workspace deletion is irreversible.
               </p>
-              <div className="flex gap-3">
-                <a
-                  href={`/api/workspaces/${ws.id}/export`}
-                  className="text-sm text-zinc-600 dark:text-zinc-400 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-1.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors"
-                >
-                  Export all docs (.zip)
-                </a>
-              </div>
+              <DangerZone workspaceId={ws.id} workspaceName={ws.name} exportUrl={`/api/workspaces/${ws.id}/export`} />
             </section>
           </div>
         </main>
@@ -110,4 +117,3 @@ export default async function SettingsPage({ params }: Props) {
     </div>
   );
 }
-
