@@ -13,8 +13,8 @@ interface RouteParams {
 }
 
 async function assertAdmin(workspaceId: string, userId: string) {
-  const supabase = await createClient();
-  const { data } = await supabase
+  const service = await createServiceClient();
+  const { data } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)

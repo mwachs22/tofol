@@ -20,7 +20,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return problem(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -31,8 +32,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const body = await request.json().catch(() => null);
   if (!body?.docId) return problem(400, "docId required.");
-
-  const service = await createServiceClient();
 
   const { data: ws } = await service
     .from("workspaces")

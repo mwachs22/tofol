@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
     if (!docRow) return problem(404, "Not Found", `Document "${id}" not found.`);
 
-    const { data: member } = await sessionClient
+    const { data: member } = await service
       .from("members")
       .select("role")
       .eq("workspace_id", docRow.workspace_id)

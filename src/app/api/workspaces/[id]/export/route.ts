@@ -22,7 +22,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -32,8 +33,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!member || member.role !== "admin") {
     return problem(403, "Forbidden", "Only admins can export workspace data.");
   }
-
-  const service = await createServiceClient();
   const { data: docs } = await service
     .from("documents")
     .select("title, slug, body, frontmatter, tags, updated_at")

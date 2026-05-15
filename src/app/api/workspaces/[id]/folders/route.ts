@@ -17,7 +17,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -25,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     .single();
   if (!member) return problem(403, "Not a member.");
 
-  const { data: folders } = await supabase
+  const { data: folders } = await service
     .from("folders")
     .select("id, name, slug, created_at")
     .eq("workspace_id", workspaceId)
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -57,8 +59,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const slug =
     body.slug?.toString().trim() ||
     name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-  const service = await createServiceClient();
   const { data: folder, error } = await service
     .from("folders")
     .insert({ workspace_id: workspaceId, name, slug, created_by: user.id })

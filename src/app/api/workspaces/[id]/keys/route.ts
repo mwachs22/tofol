@@ -28,7 +28,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -51,8 +52,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   const plaintext = generateApiKey();
   const keyHash = await hash(plaintext, 12);
-
-  const service = await createServiceClient();
   const { data: record, error } = await service
     .from("api_keys")
     .insert({

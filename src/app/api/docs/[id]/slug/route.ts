@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   if (!doc) return problem(404, "Not Found", "Document not found.");
 
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", doc.workspace_id)

@@ -27,7 +27,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return err(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -35,8 +36,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .single();
 
   if (!member || member.role !== "admin") return err(403, "Only admins can run migrations.");
-
-  const service = await createServiceClient();
 
   const { data: ws } = await service
     .from("workspaces")

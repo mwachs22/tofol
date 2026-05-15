@@ -1,6 +1,6 @@
 // Internal route — requires session auth, not API key auth.
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 function problem(status: number, title: string, detail: string) {
   return NextResponse.json(
@@ -21,8 +21,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  // Verify user has access to the doc's workspace
-  const { data: doc } = await supabase
+  const service = await createServiceClient();
+  const { data: doc } = await service
     .from("documents")
     .select("id, workspace_id")
     .eq("id", id)
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   if (!doc) return problem(404, "Not Found", "Document not found.");
 
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", doc.workspace_id)
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   if (!member) return problem(403, "Forbidden", "Not a member of this workspace.");
 
   const limit = 50;
-  const { data: revisions } = await supabase
+  const { data: revisions } = await service
     .from("revisions")
     .select("id, author_type, author_display_name, created_at")
     .eq("document_id", id)
@@ -59,7 +59,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: doc } = await supabase
+  const service = await createServiceClient();
+  const { data: doc } = await service
     .from("documents")
     .select("id, workspace_id, body, frontmatter")
     .eq("id", id)
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!doc) return problem(404, "Not Found", "Document not found.");
 
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", doc.workspace_id)
@@ -78,10 +79,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return problem(403, "Forbidden", "Editors and admins can create revisions.");
   }
 
-  const { data: { user: fullUser } } = await supabase.auth.getUser();
-  const displayName = fullUser?.email ?? fullUser?.id ?? "Unknown";
+  const displayName = user.email ?? user.id ?? "Unknown";
 
-  const { data: revision } = await supabase
+  const { data: revision } = await service
     .from("revisions")
     .insert({
       document_id: id,
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     .select("id")
     .single();
 
-  await supabase
+  await service
     .from("documents")
     .update({ current_revision_id: revision?.id ?? null })
     .eq("id", id);

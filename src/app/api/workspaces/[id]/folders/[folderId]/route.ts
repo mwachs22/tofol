@@ -17,7 +17,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -33,8 +34,6 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (typeof body.slug === "string") updates.slug = body.slug.trim().slice(0, 100);
 
   if (Object.keys(updates).length === 0) return problem(400, "No updatable fields.");
-
-  const service = await createServiceClient();
   const { data: folder, error } = await service
     .from("folders")
     .update(updates)
@@ -59,15 +58,14 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .single();
   if (!member || member.role !== "admin") return problem(403, "Admins only.");
-
-  const service = await createServiceClient();
   // Documents in this folder have folder_id set to null by FK on delete set null
   await service.from("folders").delete().eq("id", folderId).eq("workspace_id", workspaceId);
 

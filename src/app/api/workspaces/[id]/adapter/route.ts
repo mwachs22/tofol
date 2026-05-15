@@ -21,7 +21,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -41,8 +42,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   if (adapterType === "gbrain" && body.config) {
     encryptedConfig = await encryptAdapterConfig(body.config);
   }
-
-  const service = await createServiceClient();
   const { error } = await service
     .from("workspaces")
     .update({

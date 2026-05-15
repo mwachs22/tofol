@@ -21,7 +21,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -31,8 +32,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   if (!member || member.role !== "admin") {
     return problem(403, "Forbidden", "Only admins can revoke API keys.");
   }
-
-  const service = await createServiceClient();
   const { error } = await service
     .from("api_keys")
     .update({ revoked_at: new Date().toISOString() })

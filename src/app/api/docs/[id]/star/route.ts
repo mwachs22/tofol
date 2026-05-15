@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,7 +14,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   if (!user) return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
 
-  const { data: existing } = await supabase
+  const service = await createServiceClient();
+  const { data: existing } = await service
     .from("starred_docs")
     .select("document_id")
     .eq("user_id", user.id)
@@ -22,7 +23,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (existing) {
-    await supabase
+    await service
       .from("starred_docs")
       .delete()
       .eq("user_id", user.id)
@@ -30,7 +31,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ starred: false });
   }
 
-  await supabase
+  await service
     .from("starred_docs")
     .insert({ user_id: user.id, document_id: docId });
 

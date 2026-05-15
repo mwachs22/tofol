@@ -47,8 +47,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
   if (!user) return problem(401, "Unauthorized", "Sign in to create documents.");
 
+  const service = await createServiceClient();
+
   // Verify membership (editor or admin)
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -63,8 +65,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const title: string = body.title ?? "Untitled";
   const slug = await uniqueSlug(workspaceId, slugify(title));
   const folderId: string | null = typeof body.folder_id === "string" ? body.folder_id : null;
-
-  const service = await createServiceClient();
   const { data: doc, error } = await service
     .from("documents")
     .insert({
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   if (error) return problem(500, "Server error", error.message);
 
   // Return workspace handle so client can redirect
-  const { data: ws } = await supabase
+  const { data: ws } = await service
     .from("workspaces")
     .select("handle")
     .eq("id", workspaceId)

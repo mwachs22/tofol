@@ -17,16 +17,17 @@ async function getAdminMember(workspaceId: string) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { user: null, member: null, supabase };
+  if (!user) return { user: null, member: null };
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
     .eq("user_id", user.id)
     .single();
 
-  return { user, member, supabase };
+  return { user, member };
 }
 
 interface RouteParams {

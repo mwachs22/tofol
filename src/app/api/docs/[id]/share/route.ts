@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 function problem(status: number, title: string, detail: string) {
   return NextResponse.json(
@@ -20,7 +20,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
   if (!user) return problem(401, "Unauthorized", "Sign in required.");
 
-  const { data: doc } = await supabase
+  const service = await createServiceClient();
+  const { data: doc } = await service
     .from("documents")
     .select("id, workspace_id")
     .eq("id", id)
@@ -28,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   if (!doc) return problem(404, "Not Found", "Document not found.");
 
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", doc.workspace_id)
@@ -45,7 +46,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return problem(400, "Bad Request", "shareMode must be none, public_view, or public_edit.");
   }
 
-  await supabase
+  await service
     .from("documents")
     .update({ share_mode: body.shareMode })
     .eq("id", id);
