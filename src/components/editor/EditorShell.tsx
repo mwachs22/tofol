@@ -20,10 +20,12 @@ import { Collaboration } from "@tiptap/extension-collaboration";
 import { CollaborationCursor } from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
+import Mention from "@tiptap/extension-mention";
 import { EditorToolbar } from "./EditorToolbar";
 import { FrontmatterPanel } from "./FrontmatterPanel";
 import { ShareModal } from "./ShareModal";
 import { RevisionHistory } from "./RevisionHistory";
+import { buildEntitySuggestion } from "./EntityMentionSuggestion";
 
 const lowlight = createLowlight(all);
 
@@ -44,6 +46,7 @@ interface DocData {
 
 interface Props {
   doc: DocData;
+  workspaceId: string;
   workspaceHandle: string;
   workspaceName: string;
   canEdit: boolean;
@@ -53,6 +56,7 @@ interface Props {
 
 export function EditorShell({
   doc,
+  workspaceId,
   workspaceHandle,
   workspaceName,
   canEdit,
@@ -108,6 +112,16 @@ export function EditorShell({
         provider,
         user: { name: userId, color: stringToColor(userId) },
       }),
+      Mention.configure({
+        HTMLAttributes: { class: "entity-mention" },
+        renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
+        renderHTML: ({ node }) => [
+          "span",
+          { class: "entity-mention", "data-id": node.attrs.id },
+          `@${node.attrs.label ?? node.attrs.id}`,
+        ],
+        suggestion: buildEntitySuggestion(workspaceId),
+      }),
     ],
     content: doc.body,
     onUpdate({ editor }) {
@@ -159,6 +173,18 @@ export function EditorShell({
     }
   }, [doc.id, doc.slug, slug, workspaceHandle]);
 
+  const uploadImage = useCallback(async (file: File) => {
+    const res = await fetch("/api/images", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: file.type, size: file.size }),
+    });
+    if (!res.ok) return;
+    const { uploadUrl, publicUrl } = await res.json();
+    await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+    editor?.chain().focus().setImage({ src: publicUrl }).run();
+  }, [editor]);
+
   function handleRestore(revisionId: string) {
     setCurrentRevisionId(revisionId);
     setShowHistory(false);
@@ -204,7 +230,7 @@ export function EditorShell({
       </header>
 
       {/* Toolbar */}
-      {canEdit && editor && <EditorToolbar editor={editor} />}
+      {canEdit && editor && <EditorToolbar editor={editor} onImageUpload={uploadImage} />}
 
       {/* Banners */}
       {isLocked && (
@@ -264,6 +290,7 @@ export function EditorShell({
 
             <FrontmatterPanel
               docId={doc.id}
+              workspaceId={workspaceId}
               frontmatter={doc.frontmatter}
               tags={doc.tags}
               canEdit={canEdit}

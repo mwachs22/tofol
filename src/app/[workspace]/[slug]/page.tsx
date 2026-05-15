@@ -85,6 +85,7 @@ export default async function DocumentPage({ params }: Props) {
         shareMode: doc.share_mode,
         currentRevisionId: doc.current_revision_id,
       }}
+      workspaceId={ws.id}
       workspaceHandle={handle}
       workspaceName={ws.name}
       canEdit={canEdit}

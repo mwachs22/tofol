@@ -1,12 +1,27 @@
 "use client";
 
+import { useRef } from "react";
 import type { Editor } from "@tiptap/react";
 
 interface Props {
   editor: Editor;
+  onImageUpload?: (file: File) => Promise<void>;
 }
 
-export function EditorToolbar({ editor }: Props) {
+export function EditorToolbar({ editor, onImageUpload }: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImageButtonClick() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !onImageUpload) return;
+    e.target.value = "";
+    await onImageUpload(file);
+  }
+
   return (
     <div className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-1.5 flex items-center gap-1 flex-wrap">
       <ToolbarButton
@@ -111,6 +126,28 @@ export function EditorToolbar({ editor }: Props) {
       >
         ⊞
       </ToolbarButton>
+
+      <Divider />
+
+      {onImageUpload && (
+        <>
+          <Divider />
+          <ToolbarButton
+            onClick={handleImageButtonClick}
+            active={false}
+            title="Insert image"
+          >
+            ⬡
+          </ToolbarButton>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </>
+      )}
 
       <Divider />
 

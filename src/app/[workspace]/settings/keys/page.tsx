@@ -42,6 +42,7 @@ export default async function ApiKeysPage({ params }: Props) {
     { href: `/${handle}/settings/adapter`, label: "Backend adapter" },
     { href: `/${handle}/settings/keys`, label: "API keys", active: true },
     { href: `/${handle}/settings/members`, label: "Members" },
+    { href: `/${handle}/settings/migrate`, label: "Migration" },
   ];
 
   return (

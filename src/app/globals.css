@@ -55,3 +55,21 @@ body {
   white-space: nowrap;
 }
 
+/* Entity @-mention chip */
+.entity-mention {
+  background-color: rgb(237 233 254);
+  border-radius: 4px;
+  color: rgb(109 40 217);
+  cursor: default;
+  font-size: 0.875em;
+  padding: 0.1em 0.3em;
+  font-weight: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  .entity-mention {
+    background-color: rgb(46 16 101);
+    color: rgb(196 181 253);
+  }
+}
+

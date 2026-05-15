@@ -42,6 +42,7 @@ export default async function MembersPage({ params }: Props) {
     { href: `/${handle}/settings/adapter`, label: "Backend adapter" },
     { href: `/${handle}/settings/keys`, label: "API keys" },
     { href: `/${handle}/settings/members`, label: "Members", active: true },
+    { href: `/${handle}/settings/migrate`, label: "Migration" },
   ];
 
   return (
