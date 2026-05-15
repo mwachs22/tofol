@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
   const user = await getUser();
@@ -9,9 +9,9 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const supabase = await createClient();
+  const db = await createServiceClient();
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from("members")
     .select("workspace_id")
     .eq("user_id", user.id)
@@ -19,11 +19,9 @@ export default async function HomePage() {
     .limit(1)
     .single();
 
-  if (!member) {
-    redirect("/onboarding");
-  }
+  if (!member) redirect("/onboarding");
 
-  const { data: workspace } = await supabase
+  const { data: workspace } = await db
     .from("workspaces")
     .select("handle")
     .eq("id", member.workspace_id)

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { WorkspaceDetailsForm } from "./WorkspaceDetailsForm";
 import { ThemeForm } from "./ThemeForm";
 import { DangerZone } from "./DangerZone";
@@ -13,7 +13,7 @@ interface Props {
 export default async function SettingsPage({ params }: Props) {
   const { workspace: handle } = await params;
   const user = await requireUser();
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data: ws } = await supabase
     .from("workspaces")

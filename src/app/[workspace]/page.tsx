@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import WorkspaceHome from "./WorkspaceHome";
 
 interface Props {
@@ -10,9 +10,9 @@ interface Props {
 export default async function WorkspacePage({ params }: Props) {
   const { workspace: handle } = await params;
   const user = await requireUser();
-  const supabase = await createClient();
+  const db = await createServiceClient();
 
-  const { data: ws } = await supabase
+  const { data: ws } = await db
     .from("workspaces")
     .select("id, name, handle")
     .eq("handle", handle)
@@ -20,7 +20,7 @@ export default async function WorkspacePage({ params }: Props) {
 
   if (!ws) notFound();
 
-  const { data: member } = await supabase
+  const { data: member } = await db
     .from("members")
     .select("role")
     .eq("workspace_id", ws.id)
@@ -29,23 +29,20 @@ export default async function WorkspacePage({ params }: Props) {
 
   if (!member) notFound();
 
-  const { data: docs } = await supabase
-    .from("documents")
-    .select("id, title, slug, updated_at, tags, folder_id")
-    .eq("workspace_id", ws.id)
-    .order("updated_at", { ascending: false })
-    .limit(100);
-
-  const { data: folders } = await supabase
-    .from("folders")
-    .select("id, name, slug")
-    .eq("workspace_id", ws.id)
-    .order("name", { ascending: true });
-
-  const { data: stars } = await supabase
-    .from("starred_docs")
-    .select("document_id")
-    .eq("user_id", user.id);
+  const [{ data: docs }, { data: folders }, { data: stars }] = await Promise.all([
+    db.from("documents")
+      .select("id, title, slug, updated_at, tags, folder_id")
+      .eq("workspace_id", ws.id)
+      .order("updated_at", { ascending: false })
+      .limit(100),
+    db.from("folders")
+      .select("id, name, slug")
+      .eq("workspace_id", ws.id)
+      .order("name", { ascending: true }),
+    db.from("starred_docs")
+      .select("document_id")
+      .eq("user_id", user.id),
+  ]);
 
   const starredIds = new Set((stars ?? []).map((s) => s.document_id));
 

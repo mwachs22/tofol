@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import MigrateClient from "./MigrateClient";
 import type { Json } from "@/lib/supabase/types";
 
@@ -21,9 +21,9 @@ interface ReviewDoc {
 export default async function MigratePage({ params }: Props) {
   const { workspace: handle } = await params;
   const user = await requireUser();
-  const supabase = await createClient();
+  const service = await createServiceClient();
 
-  const { data: ws } = await supabase
+  const { data: ws } = await service
     .from("workspaces")
     .select("id, name, handle, adapter_type")
     .eq("handle", handle)
@@ -31,7 +31,7 @@ export default async function MigratePage({ params }: Props) {
 
   if (!ws) notFound();
 
-  const { data: member } = await supabase
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", ws.id)
@@ -39,8 +39,6 @@ export default async function MigratePage({ params }: Props) {
     .single();
 
   if (!member || member.role !== "admin") redirect(`/${handle}`);
-
-  const service = await createServiceClient();
 
   const [{ count: docCount }, { data: latestJob }] = await Promise.all([
     service

@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import ApiKeysClient from "./ApiKeysClient";
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 export default async function ApiKeysPage({ params }: Props) {
   const { workspace: handle } = await params;
   const user = await requireUser();
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   const { data: ws } = await supabase
     .from("workspaces")
