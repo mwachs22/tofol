@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "dev:hocuspocus": "node --env-file=.env.local --import tsx/esm hocuspocus-server.ts",
+    "dev:hocuspocus": "node --env-file=.env.local --import tsx hocuspocus-server.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
