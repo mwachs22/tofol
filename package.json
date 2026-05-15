@@ -10,10 +10,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1048.0",
+    "@aws-sdk/s3-request-presigner": "^3.1048.0",
     "@hocuspocus/provider": "^4.0.0",
     "@hocuspocus/server": "^4.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@tiptap/extension-code-block-lowlight": "^3.23.4",
     "@tiptap/extension-collaboration": "^3.23.4",
     "@tiptap/extension-collaboration-cursor": "^3.0.0",

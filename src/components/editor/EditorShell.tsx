@@ -47,6 +47,7 @@ interface Props {
   workspaceHandle: string;
   workspaceName: string;
   canEdit: boolean;
+  isLocked?: boolean;
   userId: string;
 }
 
@@ -55,9 +56,12 @@ export function EditorShell({
   workspaceHandle,
   workspaceName,
   canEdit,
+  isLocked = false,
   userId,
 }: Props) {
   const [title, setTitle] = useState(doc.title);
+  const [slug, setSlug] = useState(doc.slug);
+  const [editingSlug, setEditingSlug] = useState(false);
   const [shareMode, setShareMode] = useState(doc.shareMode);
   const [sizeWarning, setSizeWarning] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -137,6 +141,24 @@ export function EditorShell({
     });
   }, [doc.id, doc.title, title]);
 
+  const saveSlug = useCallback(async () => {
+    setEditingSlug(false);
+    if (slug === doc.slug) return;
+    const res = await fetch(`/api/docs/${doc.id}/slug`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Navigate to new slug URL without full reload
+      window.history.replaceState({}, "", `/${workspaceHandle}/${data.slug}`);
+      setSlug(data.slug);
+    } else {
+      setSlug(doc.slug); // revert on conflict
+    }
+  }, [doc.id, doc.slug, slug, workspaceHandle]);
+
   function handleRestore(revisionId: string) {
     setCurrentRevisionId(revisionId);
     setShowHistory(false);
@@ -185,6 +207,11 @@ export function EditorShell({
       {canEdit && editor && <EditorToolbar editor={editor} />}
 
       {/* Banners */}
+      {isLocked && (
+        <div className="bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800 px-6 py-1.5 text-xs text-blue-700 dark:text-blue-300 shrink-0">
+          Migration in progress — this document is read-only until the migration completes.
+        </div>
+      )}
       {!connected && (
         <div className="bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 px-6 py-1.5 text-xs text-amber-700 dark:text-amber-300 shrink-0">
           You are offline. Edits will sync when you reconnect.
@@ -208,6 +235,32 @@ export function EditorShell({
               className="w-full text-4xl font-bold text-zinc-900 dark:text-zinc-50 bg-transparent outline-none mb-6 placeholder:text-zinc-300"
               placeholder="Untitled"
             />
+
+            {/* Slug editor */}
+            {canEdit && (
+              <div className="flex items-center gap-1.5 mb-5 -mt-3">
+                <span className="text-xs text-zinc-400">
+                  {workspaceHandle}/
+                </span>
+                {editingSlug ? (
+                  <input
+                    autoFocus
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                    onBlur={saveSlug}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveSlug(); if (e.key === "Escape") { setSlug(doc.slug); setEditingSlug(false); } }}
+                    className="text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-zinc-400 font-mono"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setEditingSlug(true)}
+                    className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 font-mono hover:underline"
+                  >
+                    {slug}
+                  </button>
+                )}
+              </div>
+            )}
 
             <FrontmatterPanel
               docId={doc.id}

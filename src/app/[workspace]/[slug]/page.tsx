@@ -18,6 +18,18 @@ export default async function DocumentPage({ params }: Props) {
     .eq("handle", handle)
     .single();
 
+  // Check workspace read-only lock (active migration)
+  const service = (await import("@/lib/supabase/server")).createServiceClient;
+  const serviceCli = await service();
+  const { data: activeJob } = await serviceCli
+    .from("migration_jobs")
+    .select("id, is_workspace_locked")
+    .eq("workspace_id", ws?.id ?? "")
+    .eq("is_workspace_locked", true)
+    .limit(1)
+    .maybeSingle();
+  const isLocked = !!activeJob;
+
   if (!ws) notFound();
 
   const { data: member } = await supabase
@@ -59,7 +71,7 @@ export default async function DocumentPage({ params }: Props) {
     notFound();
   }
 
-  const canEdit = member.role === "admin" || member.role === "editor";
+  const canEdit = !isLocked && (member.role === "admin" || member.role === "editor");
 
   return (
     <EditorShell
@@ -76,6 +88,7 @@ export default async function DocumentPage({ params }: Props) {
       workspaceHandle={handle}
       workspaceName={ws.name}
       canEdit={canEdit}
+      isLocked={isLocked}
       userId={user.id}
     />
   );
