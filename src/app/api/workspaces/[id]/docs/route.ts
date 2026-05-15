@@ -62,6 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   const body = await request.json().catch(() => ({}));
   const title: string = body.title ?? "Untitled";
   const slug = await uniqueSlug(workspaceId, slugify(title));
+  const folderId: string | null = typeof body.folder_id === "string" ? body.folder_id : null;
 
   const service = await createServiceClient();
   const { data: doc, error } = await service
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       title,
       slug,
       body: "",
+      folder_id: folderId,
       created_by: user.id,
       last_edited_by: user.id,
     })

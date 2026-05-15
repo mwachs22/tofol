@@ -10,6 +10,13 @@ interface Doc {
   slug: string;
   updated_at: string;
   tags: string[];
+  folder_id: string | null;
+}
+
+interface Folder {
+  id: string;
+  name: string;
+  slug: string;
 }
 
 interface Props {
@@ -17,6 +24,7 @@ interface Props {
   memberRole: "admin" | "editor" | "viewer";
   initialDocs: Doc[];
   initialStarredIds: string[];
+  initialFolders: Folder[];
 }
 
 export default function WorkspaceHome({
@@ -24,12 +32,17 @@ export default function WorkspaceHome({
   memberRole,
   initialDocs,
   initialStarredIds,
+  initialFolders,
 }: Props) {
   const router = useRouter();
-  const [docs] = useState<Doc[]>(initialDocs);
+  const [docs, setDocs] = useState<Doc[]>(initialDocs);
+  const [folders, setFolders] = useState<Folder[]>(initialFolders);
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set(initialStarredIds));
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
   const canEdit = memberRole === "admin" || memberRole === "editor";
 
   const filtered = search
@@ -41,15 +54,14 @@ export default function WorkspaceHome({
     : docs;
 
   const starredDocs = docs.filter((d) => starredIds.has(d.id));
-  const unstarredDocs = filtered.filter((d) => !starredIds.has(d.id));
 
-  async function createDoc() {
+  async function createDoc(folderId?: string) {
     setCreating(true);
     try {
       const res = await fetch(`/api/workspaces/${workspace.id}/docs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Untitled" }),
+        body: JSON.stringify({ title: "Untitled", folder_id: folderId ?? null }),
       });
       if (!res.ok) return;
       const { slug } = await res.json();
@@ -57,6 +69,37 @@ export default function WorkspaceHome({
     } finally {
       setCreating(false);
     }
+  }
+
+  async function createFolder(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newFolderName.trim()) return;
+    const res = await fetch(`/api/workspaces/${workspace.id}/folders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newFolderName.trim() }),
+    });
+    if (res.ok) {
+      const folder = await res.json();
+      setFolders((prev) => [...prev, folder].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewFolderName("");
+      setCreatingFolder(false);
+    }
+  }
+
+  async function deleteFolder(folderId: string) {
+    await fetch(`/api/workspaces/${workspace.id}/folders/${folderId}`, { method: "DELETE" });
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    setDocs((prev) => prev.map((d) => d.folder_id === folderId ? { ...d, folder_id: null } : d));
+  }
+
+  async function moveDoc(docId: string, folderId: string | null) {
+    setDocs((prev) => prev.map((d) => d.id === docId ? { ...d, folder_id: folderId } : d));
+    await fetch(`/api/docs/${docId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folder_id: folderId }),
+    });
   }
 
   async function toggleStar(docId: string, e: React.MouseEvent) {
@@ -67,11 +110,19 @@ export default function WorkspaceHome({
     else next.add(docId);
     setStarredIds(next);
     const res = await fetch(`/api/docs/${docId}/star`, { method: "POST" });
-    if (!res.ok) {
-      // revert on failure
-      setStarredIds(starredIds);
-    }
+    if (!res.ok) setStarredIds(starredIds);
   }
+
+  function toggleFolderCollapse(folderId: string) {
+    setCollapsedFolders((prev) => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId);
+      else next.add(folderId);
+      return next;
+    });
+  }
+
+  const unfolderedDocs = filtered.filter((d) => !d.folder_id);
 
   return (
     <div className="min-h-screen bg-white dark:bg-zinc-950">
@@ -90,7 +141,7 @@ export default function WorkspaceHome({
           )}
           {canEdit && (
             <button
-              onClick={createDoc}
+              onClick={() => createDoc()}
               disabled={creating}
               className="rounded-md bg-zinc-900 dark:bg-zinc-50 px-4 py-1.5 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors"
             >
@@ -114,53 +165,169 @@ export default function WorkspaceHome({
         {/* Starred section */}
         {starredDocs.length > 0 && !search && (
           <section className="mb-8">
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-              Starred
-            </h2>
+            <SectionHeader label="Starred" />
             <DocList
               docs={starredDocs}
               handle={workspace.handle}
               starredIds={starredIds}
+              folders={folders}
+              canEdit={canEdit}
               onToggleStar={toggleStar}
+              onMoveDoc={moveDoc}
             />
           </section>
         )}
 
-        {/* All / filtered docs */}
-        {!search && starredDocs.length > 0 && unstarredDocs.length > 0 && (
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-            All documents
-          </h2>
-        )}
+        {/* Folder sections */}
+        {!search && folders.map((folder) => {
+          const folderDocs = docs.filter((d) => d.folder_id === folder.id);
+          const isCollapsed = collapsedFolders.has(folder.id);
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-16 text-zinc-400">
-            {search ? (
-              <p className="text-sm">No documents match &ldquo;{search}&rdquo;</p>
-            ) : (
-              <div>
+          return (
+            <section key={folder.id} className="mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => toggleFolderCollapse(folder.id)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 uppercase tracking-wider hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  <svg
+                    viewBox="0 0 12 12"
+                    className={`w-3 h-3 transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.5}
+                  >
+                    <path d="M4 2l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span>📁 {folder.name}</span>
+                  <span className="font-normal text-zinc-400">({folderDocs.length})</span>
+                </button>
+                {canEdit && (
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => createDoc(folder.id)}
+                      className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                      title="New doc in folder"
+                    >
+                      + doc
+                    </button>
+                    {memberRole === "admin" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Delete folder "${folder.name}"? Documents will be moved out.`)) {
+                            deleteFolder(folder.id);
+                          }
+                        }}
+                        className="text-[10px] text-zinc-400 hover:text-red-500"
+                        title="Delete folder"
+                      >
+                        delete
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              {!isCollapsed && (
+                folderDocs.length === 0 ? (
+                  <p className="text-xs text-zinc-400 pl-4 py-1">No documents in this folder.</p>
+                ) : (
+                  <DocList
+                    docs={folderDocs}
+                    handle={workspace.handle}
+                    starredIds={starredIds}
+                    folders={folders}
+                    canEdit={canEdit}
+                    onToggleStar={toggleStar}
+                    onMoveDoc={moveDoc}
+                  />
+                )
+              )}
+            </section>
+          );
+        })}
+
+        {/* Unfoldered docs */}
+        {(unfolderedDocs.length > 0 || search) && (
+          <section>
+            {folders.length > 0 && !search && <SectionHeader label="All documents" />}
+            {search && filtered.length === 0 ? (
+              <p className="text-sm text-center py-16 text-zinc-400">
+                No documents match &ldquo;{search}&rdquo;
+              </p>
+            ) : filtered.length === 0 && !search ? (
+              <div className="text-center py-16 text-zinc-400">
                 <p className="text-sm mb-3">No documents yet.</p>
                 {canEdit && (
                   <button
-                    onClick={createDoc}
+                    onClick={() => createDoc()}
                     className="text-sm font-medium text-zinc-900 dark:text-zinc-50 hover:underline"
                   >
                     Create your first document
                   </button>
                 )}
               </div>
+            ) : (
+              <DocList
+                docs={search ? filtered : unfolderedDocs}
+                handle={workspace.handle}
+                starredIds={starredIds}
+                folders={folders}
+                canEdit={canEdit}
+                onToggleStar={toggleStar}
+                onMoveDoc={moveDoc}
+              />
+            )}
+          </section>
+        )}
+
+        {/* Create folder button */}
+        {canEdit && !search && (
+          <div className="mt-8 pt-6 border-t border-zinc-100 dark:border-zinc-900">
+            {creatingFolder ? (
+              <form onSubmit={createFolder} className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-zinc-400"
+                />
+                <button
+                  type="submit"
+                  className="text-sm font-medium text-zinc-900 dark:text-zinc-50 px-3 py-1.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                >
+                  Create
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCreatingFolder(false); setNewFolderName(""); }}
+                  className="text-sm text-zinc-400 hover:text-zinc-600"
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCreatingFolder(true)}
+                className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 flex items-center gap-1"
+              >
+                <span>+</span> New folder
+              </button>
             )}
           </div>
-        ) : (
-          <DocList
-            docs={search ? filtered : unstarredDocs}
-            handle={workspace.handle}
-            starredIds={starredIds}
-            onToggleStar={toggleStar}
-          />
         )}
       </main>
     </div>
+  );
+}
+
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">{label}</h2>
   );
 }
 
@@ -168,22 +335,28 @@ function DocList({
   docs,
   handle,
   starredIds,
+  folders,
+  canEdit,
   onToggleStar,
+  onMoveDoc,
 }: {
   docs: Doc[];
   handle: string;
   starredIds: Set<string>;
+  folders: Folder[];
+  canEdit: boolean;
   onToggleStar: (id: string, e: React.MouseEvent) => void;
+  onMoveDoc: (docId: string, folderId: string | null) => void;
 }) {
   if (docs.length === 0) return null;
 
   return (
     <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
       {docs.map((doc) => (
-        <li key={doc.id}>
+        <li key={doc.id} className="group">
           <Link
             href={`/${handle}/${doc.slug}`}
-            className="flex items-center justify-between py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 -mx-2 px-2 rounded-md transition-colors group"
+            className="flex items-center justify-between py-3 hover:bg-zinc-50 dark:hover:bg-zinc-900 -mx-2 px-2 rounded-md transition-colors"
           >
             <div className="flex items-center gap-2 min-w-0">
               <button
@@ -193,13 +366,13 @@ function DocList({
                 className={`shrink-0 text-base leading-none transition-colors ${
                   starredIds.has(doc.id)
                     ? "text-amber-400 hover:text-amber-500"
-                    : "text-zinc-200 dark:text-zinc-700 hover:text-amber-400"
+                    : "text-zinc-200 dark:text-zinc-700 group-hover:text-zinc-300 hover:text-amber-400"
                 }`}
               >
                 {starredIds.has(doc.id) ? "★" : "☆"}
               </button>
               <div className="min-w-0">
-                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 group-hover:text-zinc-700 dark:group-hover:text-zinc-300 block truncate">
+                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-50 block truncate">
                   {doc.title || "Untitled"}
                 </span>
                 {doc.tags.length > 0 && (
@@ -216,12 +389,31 @@ function DocList({
                 )}
               </div>
             </div>
-            <span className="text-xs text-zinc-400 shrink-0 ml-4">
-              {new Date(doc.updated_at).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-              })}
-            </span>
+            <div className="flex items-center gap-3 shrink-0 ml-4">
+              {canEdit && folders.length > 0 && (
+                <select
+                  value={doc.folder_id ?? ""}
+                  onClick={(e) => e.preventDefault()}
+                  onChange={(e) => {
+                    e.preventDefault();
+                    onMoveDoc(doc.id, e.target.value || null);
+                  }}
+                  className="text-xs text-zinc-400 bg-transparent border-none outline-none cursor-pointer hover:text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Move to folder"
+                >
+                  <option value="">No folder</option>
+                  {folders.map((f) => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              )}
+              <span className="text-xs text-zinc-400">
+                {new Date(doc.updated_at).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
+            </div>
           </Link>
         </li>
       ))}

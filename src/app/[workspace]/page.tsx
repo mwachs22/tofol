@@ -31,10 +31,16 @@ export default async function WorkspacePage({ params }: Props) {
 
   const { data: docs } = await supabase
     .from("documents")
-    .select("id, title, slug, updated_at, tags")
+    .select("id, title, slug, updated_at, tags, folder_id")
     .eq("workspace_id", ws.id)
     .order("updated_at", { ascending: false })
     .limit(100);
+
+  const { data: folders } = await supabase
+    .from("folders")
+    .select("id, name, slug")
+    .eq("workspace_id", ws.id)
+    .order("name", { ascending: true });
 
   const { data: stars } = await supabase
     .from("starred_docs")
@@ -49,6 +55,7 @@ export default async function WorkspacePage({ params }: Props) {
       memberRole={member.role}
       initialDocs={docs ?? []}
       initialStarredIds={[...starredIds]}
+      initialFolders={folders ?? []}
     />
   );
 }

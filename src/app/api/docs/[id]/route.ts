@@ -190,6 +190,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       ...(typeof body.title === "string" ? { title: body.title } : {}),
       ...(typeof body.body === "string" ? { body: body.body } : {}),
       ...(body.tags ? { tags: body.tags as string[] } : {}),
+      ...("folder_id" in body ? { folder_id: body.folder_id as string | null } : {}),
       ...(editorId ? { last_edited_by: editorId } : {}),
       ...(keyId ? { last_edited_by_key: keyId } : {}),
     })
