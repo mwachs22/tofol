@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api/auth";
 import { checkRateLimit, rateLimitHeaders } from "@/lib/api/rate-limit";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 function problem(status: number, title: string, detail: string, extra?: Record<string, unknown>) {
   return NextResponse.json(
@@ -123,22 +123,60 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   return NextResponse.json(updated, { headers: rlHeaders });
 }
 
-/** PATCH /api/docs/:id — partial update */
+/** PATCH /api/docs/:id — partial update (accepts session auth or API key) */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const auth = await authenticateApiKey(request, "read-write");
-  if ("error" in auth) return auth.error;
 
-  const rl = checkRateLimit(auth.key.id);
-  const rlHeaders = rateLimitHeaders(rl);
-  if (!rl.allowed) return problem(429, "Too Many Requests", "Rate limit exceeded.");
+  // Try session auth first (editor UI); fall back to API key auth (agents)
+  const sessionClient = await createClient();
+  const {
+    data: { user: sessionUser },
+  } = await sessionClient.auth.getUser();
 
-  const supabase = await createServiceClient();
-  const { data: current } = await supabase
+  const service = await createServiceClient();
+  let workspaceId: string;
+  let editorId: string | null = null;
+  let keyId: string | null = null;
+  const rlHeaders: Record<string, string> = {};
+
+  if (sessionUser) {
+    const { data: docRow } = await service
+      .from("documents")
+      .select("id, workspace_id")
+      .eq("id", id)
+      .single();
+    if (!docRow) return problem(404, "Not Found", `Document "${id}" not found.`);
+
+    const { data: member } = await sessionClient
+      .from("members")
+      .select("role")
+      .eq("workspace_id", docRow.workspace_id)
+      .eq("user_id", sessionUser.id)
+      .single();
+
+    if (!member || member.role === "viewer") {
+      return problem(403, "Forbidden", "Editors and admins can update documents.");
+    }
+
+    workspaceId = docRow.workspace_id;
+    editorId = sessionUser.id;
+  } else {
+    const auth = await authenticateApiKey(request, "read-write");
+    if ("error" in auth) return auth.error;
+
+    const rl = checkRateLimit(auth.key.id);
+    Object.assign(rlHeaders, rateLimitHeaders(rl));
+    if (!rl.allowed) return problem(429, "Too Many Requests", "Rate limit exceeded.");
+
+    workspaceId = auth.key.workspace_id;
+    keyId = auth.key.id;
+  }
+
+  const { data: current } = await service
     .from("documents")
     .select("id")
     .eq("id", id)
-    .eq("workspace_id", auth.key.workspace_id)
+    .eq("workspace_id", workspaceId)
     .single();
 
   if (!current) return problem(404, "Not Found", `Document "${id}" not found.`);
@@ -146,13 +184,14 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const body = await request.json().catch(() => null);
   if (!body) return problem(400, "Bad Request", "Request body must be valid JSON.");
 
-  const { data: updated, error } = await supabase
+  const { data: updated, error } = await service
     .from("documents")
     .update({
       ...(typeof body.title === "string" ? { title: body.title } : {}),
       ...(typeof body.body === "string" ? { body: body.body } : {}),
       ...(body.tags ? { tags: body.tags as string[] } : {}),
-      last_edited_by_key: auth.key.id,
+      ...(editorId ? { last_edited_by: editorId } : {}),
+      ...(keyId ? { last_edited_by_key: keyId } : {}),
     })
     .eq("id", id)
     .select("id, title, slug, updated_at")

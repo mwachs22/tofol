@@ -4,12 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:hocuspocus": "npx ts-node --esm hocuspocus-server.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@hocuspocus/provider": "^4.0.0",
+    "@hocuspocus/server": "^4.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@tiptap/extension-code-block-lowlight": "^3.23.4",
