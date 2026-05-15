@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
     if (workspaceError.code === "23505") {
       return problem(409, "Handle taken", `The handle "${handle}" is already in use.`);
     }
-    return problem(500, "Server error", "Failed to create workspace.");
+    console.error("workspace insert failed:", workspaceError);
+    return problem(500, "Server error", workspaceError.message);
   }
 
   // Add creator as admin member
