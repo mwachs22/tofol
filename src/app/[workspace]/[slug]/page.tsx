@@ -1,8 +1,13 @@
 import { notFound, redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 import { getUser } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
-import { EditorShell } from "@/components/editor/EditorShell";
 import FolderPage from "./FolderPage";
+
+const EditorShell = dynamic(
+  () => import("@/components/editor/EditorShell").then((m) => m.EditorShell),
+  { ssr: false }
+);
 
 interface Props {
   params: Promise<{ workspace: string; slug: string }>;
