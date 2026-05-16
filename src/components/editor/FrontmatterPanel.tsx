@@ -37,7 +37,7 @@ export function FrontmatterPanel({ docId, workspaceId, frontmatter, tags, canEdi
   }
 
   // Fields to render: schema-defined first, then any extra keys in localFm
-  const schemaKeys = new Set(schema?.frontmatterFields.map((f) => f.key) ?? []);
+  const schemaKeys = new Set(schema?.frontmatterFields?.map((f) => f.key) ?? []);
   const extraKeys = Object.keys(localFm).filter((k) => !schemaKeys.has(k));
 
   return (
