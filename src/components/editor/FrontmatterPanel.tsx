@@ -67,7 +67,7 @@ export function FrontmatterPanel({ docId, workspaceId, frontmatter, tags, canEdi
 
           {/* Schema-defined fields */}
           {schema?.frontmatterFields
-            .filter((f) => f.key !== "title" && f.key !== "tags")
+            ?.filter((f) => f.key !== "title" && f.key !== "tags")
             .map((field) => (
               <FieldRow key={field.key} label={field.label} badge={field.type === "entity" ? field.entityType : undefined}>
                 {field.type === "date" ? (
