@@ -22,8 +22,8 @@ export function FrontmatterPanel({ docId, workspaceId, frontmatter, tags, canEdi
   useEffect(() => {
     if (!open || schema !== null) return;
     fetch(`/api/workspaces/${workspaceId}/adapter/schema`)
-      .then((r) => r.json())
-      .then((data) => setSchema(data))
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => setSchema(Array.isArray(data?.frontmatterFields) ? data : null))
       .catch(() => setSchema(null));
   }, [open, workspaceId, schema]);
 

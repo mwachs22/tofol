@@ -15,7 +15,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   if (!user) return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
 
-  const { data: member } = await supabase
+  const service = await createServiceClient();
+  const { data: member } = await service
     .from("members")
     .select("role")
     .eq("workspace_id", workspaceId)
@@ -24,7 +25,6 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
   if (!member) return NextResponse.json({ detail: "Not a member." }, { status: 403 });
 
-  const service = await createServiceClient();
   const { data: ws } = await service
     .from("workspaces")
     .select("adapter_type")
