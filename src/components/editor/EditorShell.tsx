@@ -16,9 +16,6 @@ import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { all, createLowlight } from "lowlight";
-import { Collaboration } from "@tiptap/extension-collaboration";
-import * as Y from "yjs";
-import { HocuspocusProvider } from "@hocuspocus/provider";
 import Mention from "@tiptap/extension-mention";
 import { EditorToolbar } from "./EditorToolbar";
 import { FrontmatterPanel } from "./FrontmatterPanel";
@@ -67,34 +64,19 @@ export function EditorShell({
   const [editingSlug, setEditingSlug] = useState(false);
   const [shareMode, setShareMode] = useState(doc.shareMode);
   const [sizeWarning, setSizeWarning] = useState(false);
-  const [connected, setConnected] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [currentRevisionId, setCurrentRevisionId] = useState(doc.currentRevisionId);
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const ydoc = useState(() => new Y.Doc())[0];
-  const provider = useState(() => {
-    const hocuspocusUrl =
-      process.env.NEXT_PUBLIC_HOCUSPOCUS_URL ?? "ws://localhost:1234";
-    return new HocuspocusProvider({
-      url: hocuspocusUrl,
-      name: doc.id,
-      document: ydoc,
-      token: userId,
-      onConnect: () => setConnected(true),
-      onDisconnect: () => setConnected(false),
-    });
-  })[0];
-
   const editor = useEditor({
+    immediatelyRender: false,
     editable: canEdit,
     extensions: [
       StarterKit.configure({
         codeBlock: false,
         heading: { levels: [1, 2, 3, 4] },
-        link: false,     // configured below with openOnClick: false
-        undoRedo: false, // Collaboration provides undo/redo via yUndoPlugin
+        link: false,
       }),
       Highlight,
       Typography,
@@ -108,7 +90,6 @@ export function EditorShell({
       TaskList,
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
-      Collaboration.configure({ document: ydoc }),
       Mention.configure({
         HTMLAttributes: { class: "entity-mention" },
         renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
@@ -120,7 +101,7 @@ export function EditorShell({
         suggestion: buildEntitySuggestion(workspaceId),
       }),
     ],
-    content: doc.body,
+    content: doc.body || "",
     onUpdate({ editor }) {
       const bytes = new TextEncoder().encode(editor.getText()).length;
       setSizeWarning(bytes > BODY_SIZE_WARN_BYTES);
@@ -128,20 +109,26 @@ export function EditorShell({
         editor.commands.undo();
         return;
       }
-      // Debounced auto-save revision snapshot
-      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
-      autosaveTimer.current = setTimeout(() => {
-        fetch(`/api/docs/${doc.id}/revisions`, { method: "POST" });
-      }, AUTOSAVE_DEBOUNCE_MS);
+      scheduleAutosave(editor.getHTML());
     },
   });
 
+  const scheduleAutosave = useCallback((html: string) => {
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      await fetch(`/api/docs/${doc.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: html }),
+      });
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }, [doc.id]);
+
   useEffect(() => {
     return () => {
-      provider.destroy();
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
-  }, [provider]);
+  }, []);
 
   const saveTitle = useCallback(async () => {
     if (title === doc.title) return;
@@ -162,11 +149,10 @@ export function EditorShell({
     });
     if (res.ok) {
       const data = await res.json();
-      // Navigate to new slug URL without full reload
       window.history.replaceState({}, "", `/${workspaceHandle}/${data.slug}`);
       setSlug(data.slug);
     } else {
-      setSlug(doc.slug); // revert on conflict
+      setSlug(doc.slug);
     }
   }, [doc.id, doc.slug, slug, workspaceHandle]);
 
@@ -185,13 +171,11 @@ export function EditorShell({
   function handleRestore(revisionId: string) {
     setCurrentRevisionId(revisionId);
     setShowHistory(false);
-    // Reload page to reflect restored body in editor
     window.location.reload();
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-950">
-      {/* Top bar */}
       <header className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 flex items-center gap-3 shrink-0">
         <a
           href={`/${workspaceHandle}`}
@@ -204,7 +188,6 @@ export function EditorShell({
           {title}
         </span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
-          <ConnectionBadge connected={connected} />
           <button
             onClick={() => setShowHistory((v) => !v)}
             className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
@@ -226,18 +209,11 @@ export function EditorShell({
         </div>
       </header>
 
-      {/* Toolbar */}
       {canEdit && editor && <EditorToolbar editor={editor} onImageUpload={uploadImage} />}
 
-      {/* Banners */}
       {isLocked && (
         <div className="bg-blue-50 dark:bg-blue-950 border-b border-blue-200 dark:border-blue-800 px-6 py-1.5 text-xs text-blue-700 dark:text-blue-300 shrink-0">
           Migration in progress — this document is read-only until the migration completes.
-        </div>
-      )}
-      {!connected && (
-        <div className="bg-amber-50 dark:bg-amber-950 border-b border-amber-200 dark:border-amber-800 px-6 py-1.5 text-xs text-amber-700 dark:text-amber-300 shrink-0">
-          You are offline. Edits will sync when you reconnect.
         </div>
       )}
       {sizeWarning && (
@@ -246,7 +222,6 @@ export function EditorShell({
         </div>
       )}
 
-      {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-[720px] mx-auto px-8 py-10">
@@ -259,7 +234,6 @@ export function EditorShell({
               placeholder="Untitled"
             />
 
-            {/* Slug editor */}
             {canEdit && (
               <div className="flex items-center gap-1.5 mb-5 -mt-3">
                 <span className="text-xs text-zinc-400">
@@ -271,7 +245,10 @@ export function EditorShell({
                     value={slug}
                     onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
                     onBlur={saveSlug}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveSlug(); if (e.key === "Escape") { setSlug(doc.slug); setEditingSlug(false); } }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveSlug();
+                      if (e.key === "Escape") { setSlug(doc.slug); setEditingSlug(false); }
+                    }}
                     className="text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-zinc-400 font-mono"
                   />
                 ) : (
@@ -323,17 +300,3 @@ export function EditorShell({
     </div>
   );
 }
-
-function ConnectionBadge({ connected }: { connected: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-      <div
-        className={`w-1.5 h-1.5 rounded-full ${
-          connected ? "bg-green-500" : "bg-amber-400"
-        }`}
-      />
-      {connected ? "Live" : "Offline"}
-    </div>
-  );
-}
-
