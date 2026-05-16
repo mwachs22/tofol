@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { EditorShell } from "@/components/editor/EditorShell";
 import FolderPage from "./FolderPage";
 
@@ -11,9 +11,9 @@ interface Props {
 export default async function DocumentPage({ params }: Props) {
   const { workspace: handle, slug } = await params;
   const user = await getUser();
-  const supabase = await createClient();
+  const serviceCli = await createServiceClient();
 
-  const { data: ws } = await supabase
+  const { data: ws } = await serviceCli
     .from("workspaces")
     .select("id, name")
     .eq("handle", handle)
@@ -22,8 +22,7 @@ export default async function DocumentPage({ params }: Props) {
   if (!ws) notFound();
 
   // Check if this slug is a folder slug — if so, show folder listing
-  const serviceCli0 = await createServiceClient();
-  const { data: folder } = await serviceCli0
+  const { data: folder } = await serviceCli
     .from("folders")
     .select("id, name, slug")
     .eq("workspace_id", ws.id)
@@ -32,14 +31,14 @@ export default async function DocumentPage({ params }: Props) {
 
   if (folder) {
     if (!user) redirect(`/login?next=/${handle}/${slug}`);
-    const { data: member } = await supabase
+    const { data: member } = await serviceCli
       .from("members")
       .select("role")
       .eq("workspace_id", ws.id)
       .eq("user_id", user.id)
       .single();
     if (!member) notFound();
-    const { data: folderDocs } = await serviceCli0
+    const { data: folderDocs } = await serviceCli
       .from("documents")
       .select("id, title, slug, updated_at, tags")
       .eq("workspace_id", ws.id)
@@ -56,7 +55,6 @@ export default async function DocumentPage({ params }: Props) {
   }
 
   // Check workspace read-only lock (active migration)
-  const serviceCli = serviceCli0;
   const { data: activeJob } = await serviceCli
     .from("migration_jobs")
     .select("id, is_workspace_locked")
@@ -105,7 +103,7 @@ export default async function DocumentPage({ params }: Props) {
 
   let memberRole: "admin" | "editor" | "viewer" | null = null;
   if (user) {
-    const { data: member } = await supabase
+    const { data: member } = await serviceCli
       .from("members")
       .select("role")
       .eq("workspace_id", ws.id)
