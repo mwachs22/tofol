@@ -125,32 +125,7 @@ export default function WorkspaceHome({
   const unfolderedDocs = filtered.filter((d) => !d.folder_id);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 px-6 py-3 flex items-center justify-between">
-        <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          {workspace.name}
-        </span>
-        <div className="flex items-center gap-2">
-          {memberRole === "admin" && (
-            <Link
-              href={`/${workspace.handle}/settings`}
-              className="text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 px-2 py-1"
-            >
-              Settings
-            </Link>
-          )}
-          {canEdit && (
-            <button
-              onClick={() => createDoc()}
-              disabled={creating}
-              className="rounded-md bg-zinc-900 dark:bg-zinc-50 px-4 py-1.5 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-200 disabled:opacity-50 transition-colors"
-            >
-              {creating ? "Creating…" : "New document"}
-            </button>
-          )}
-        </div>
-      </header>
-
+    <div className="h-full overflow-y-auto bg-white dark:bg-zinc-950">
       <main className="max-w-3xl mx-auto px-6 py-10">
         <div className="mb-6">
           <input

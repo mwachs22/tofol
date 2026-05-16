@@ -175,39 +175,27 @@ export function EditorShell({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-zinc-950">
-      <header className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-2 flex items-center gap-3 shrink-0">
-        <a
-          href={`/${workspaceHandle}`}
-          className="text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 shrink-0"
+    <div className="h-full flex flex-col bg-white dark:bg-zinc-950">
+      <div className="border-b border-zinc-200 dark:border-zinc-800 px-4 py-1.5 flex items-center justify-end gap-2 shrink-0">
+        <button
+          onClick={() => setShowHistory((v) => !v)}
+          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+            showHistory
+              ? "border-zinc-900 dark:border-zinc-50 bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900"
+              : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400"
+          }`}
         >
-          {workspaceName}
-        </a>
-        <span className="text-zinc-300 dark:text-zinc-700">/</span>
-        <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate">
-          {title}
-        </span>
-        <div className="ml-auto flex items-center gap-2 shrink-0">
+          History
+        </button>
+        {canEdit && (
           <button
-            onClick={() => setShowHistory((v) => !v)}
-            className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
-              showHistory
-                ? "border-zinc-900 dark:border-zinc-50 bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900"
-                : "border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400"
-            }`}
+            onClick={() => setShowShare(true)}
+            className="text-xs px-2.5 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 transition-colors"
           >
-            History
+            Share
           </button>
-          {canEdit && (
-            <button
-              onClick={() => setShowShare(true)}
-              className="text-xs px-2.5 py-1 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-400 transition-colors"
-            >
-              Share
-            </button>
-          )}
-        </div>
-      </header>
+        )}
+      </div>
 
       {canEdit && editor && <EditorToolbar editor={editor} onImageUpload={uploadImage} />}
 
@@ -222,7 +210,7 @@ export function EditorShell({
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-[720px] mx-auto px-8 py-10">
             <input
