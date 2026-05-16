@@ -17,7 +17,6 @@ import TaskItem from "@tiptap/extension-task-item";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { all, createLowlight } from "lowlight";
 import { Collaboration } from "@tiptap/extension-collaboration";
-import { CollaborationCursor } from "@tiptap/extension-collaboration-cursor";
 import * as Y from "yjs";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import Mention from "@tiptap/extension-mention";
@@ -94,6 +93,8 @@ export function EditorShell({
       StarterKit.configure({
         codeBlock: false,
         heading: { levels: [1, 2, 3, 4] },
+        link: false,     // configured below with openOnClick: false
+        undoRedo: false, // Collaboration provides undo/redo via yUndoPlugin
       }),
       Highlight,
       Typography,
@@ -108,10 +109,6 @@ export function EditorShell({
       TaskItem.configure({ nested: true }),
       CodeBlockLowlight.configure({ lowlight }),
       Collaboration.configure({ document: ydoc }),
-      CollaborationCursor.configure({
-        provider,
-        user: { name: userId, color: stringToColor(userId) },
-      }),
       Mention.configure({
         HTMLAttributes: { class: "entity-mention" },
         renderText: ({ node }) => `@${node.attrs.label ?? node.attrs.id}`,
@@ -340,11 +337,3 @@ function ConnectionBadge({ connected }: { connected: boolean }) {
   );
 }
 
-function stringToColor(str: string): string {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = Math.abs(hash) % 360;
-  return `hsl(${h}, 65%, 50%)`;
-}
