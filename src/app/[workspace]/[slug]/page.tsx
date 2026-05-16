@@ -1,13 +1,8 @@
 import { notFound, redirect } from "next/navigation";
-import dynamic from "next/dynamic";
 import { getUser } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/server";
+import { EditorShellClient } from "@/components/editor/EditorShellClient";
 import FolderPage from "./FolderPage";
-
-const EditorShell = dynamic(
-  () => import("@/components/editor/EditorShell").then((m) => m.EditorShell),
-  { ssr: false }
-);
 
 interface Props {
   params: Promise<{ workspace: string; slug: string }>;
@@ -134,7 +129,7 @@ export default async function DocumentPage({ params }: Props) {
   }
 
   return (
-    <EditorShell
+    <EditorShellClient
       doc={{
         id: doc.id,
         title: doc.title,
@@ -154,3 +149,4 @@ export default async function DocumentPage({ params }: Props) {
     />
   );
 }
+
